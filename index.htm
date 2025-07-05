@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>愛花蓮同意罷拉罷機</title>
+  <style>
+    :root {
+      --slot1-top: 49.8%;
+      --slot1-left: 14.4%;
+      --slot2-top: 49.8%;
+      --slot2-left: 37.4%;
+      --slot3-top: 49.8%;
+      --slot3-left: 60.3%;
+      --go-top: 39%;
+      --go-right: 1.1%;
+    }
+    body {
+      margin: 0;
+      background: #8cd7f7;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding-top: 20px;
+    }
+    .slot-container {
+      position: relative;
+      width: 80vw;
+      max-width: 600px;
+      aspect-ratio: 1290 / 1745;
+      background: url('background.jpg') no-repeat center/cover;
+    }
+    .slot {
+      position: absolute;
+      width: 20.5%;
+      aspect-ratio: 275 / 500;
+      background: white;
+      overflow: hidden;
+      border: 2px solid #ffcc00;
+      box-shadow: 0 0 5px #000;
+      border-radius: 8%;
+    }
+    .reel {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+    .reel img {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 16%;
+      animation-fill-mode: forwards;
+    }
+    #go {
+      position: absolute;
+      top: var(--go-top);
+      right: var(--go-right);
+      width: 8vw;
+      height: 8vw;
+      max-width: 55px;
+      max-height: 55px;
+      cursor: pointer;
+      background-color: transparent;
+    }
+    #start-button {
+      position: fixed;
+      top: 90%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10000;
+      padding: 18px 50px;
+      font-size: 2rem;
+      color: white;
+      font-weight: bold;
+      background: linear-gradient(to bottom, #F16CAD, #d9508a);
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+      text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    #start-button:hover {
+      transform: translate(-50%, -50%) scale(1.05);
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+    }
+    #start-button:active {
+      transform: translate(-50%, -50%) scale(0.97);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 9999;
+      transition: opacity 1s ease;
+      opacity: 1;
+    }
+    .overlay.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+    @media (max-width: 600px) {
+      #start-button {
+        top: 85%;
+      }
+    }
+  </style>
+  <audio id="slot-sound" preload="auto"><source src="slot.mp3" type="audio/mpeg"></audio>
+  <audio id="win-sound" preload="auto"><source src="WIN.mp3" type="audio/mpeg"></audio>
+  <audio id="bgm" src="bgm.mp3" preload="auto" loop></audio>
+</head>
+<body>
+  <div class="overlay" id="overlay"></div>
+  <button id="start-button">START</button>
+
+  <div class="slot-container">
+    <div class="slot" style="top: var(--slot1-top); left: var(--slot1-left);">
+      <div class="reel"><img src="A.jpg" alt="slot1" id="slot-img-1"></div>
+    </div>
+    <div class="slot" style="top: var(--slot2-top); left: var(--slot2-left);">
+      <div class="reel"><img src="B.jpg" alt="slot2" id="slot-img-2"></div>
+    </div>
+    <div class="slot" style="top: var(--slot3-top); left: var(--slot3-left);">
+      <div class="reel"><img src="C.jpg" alt="slot3" id="slot-img-3"></div>
+    </div>
+    <div id="go"></div>
+    <canvas id="fireworks" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:5;"></canvas>
+  </div>
+
+<script>
+let isSpinning = false;
+let isGameStarted = false;
+const reels = document.querySelectorAll('.reel');
+const images = ['A.jpg', 'B.jpg', 'C.jpg'];
+let spinCount = 0;
+let hasWonInCycle = false;
+let winSymbol = null;
+let originalWinResults = [];
+
+document.getElementById('start-button').onclick = () => {
+  isGameStarted = true;
+  document.getElementById('start-button').style.display = 'none';
+  const overlay = document.getElementById('overlay');
+  overlay.classList.add('fade-out');
+  setTimeout(() => {
+    overlay.style.display = 'none';
+  }, 1000);
+
+  const bgm = document.getElementById('bgm');
+  if (bgm && bgm.paused) {
+    bgm.play().catch(() => {});
+  }
+};
+
+function reelsArrayRandomImages(images, count) {
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    results.push(images[Math.floor(Math.random() * images.length)]);
+  }
+  return results;
+}
+
+function replaceImagesForWin(symbol) {
+  const newSrc = symbol.replace('.jpg', '_1.jpg');
+  reels.forEach(reel => {
+    const img = reel.querySelector('img');
+    img.src = newSrc;
+  });
+}
+
+function restoreWinImages() {
+  reels.forEach((reel, i) => {
+    const img = reel.querySelector('img');
+    img.src = originalWinResults[i];
+  });
+}
+
+function showWinEffect() {
+  const canvas = document.getElementById('fireworks');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+
+  let particles = [];
+  for (let i = 0; i < 100; i++) {
+    particles.push({
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      vx: Math.random() * 6 - 3,
+      vy: Math.random() * 6 - 3,
+      alpha: 1,
+      radius: Math.random() * 4 + 2
+    });
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.alpha -= 0.02;
+      ctx.fillStyle = `rgba(255, 200, 0, ${p.alpha})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    particles = particles.filter(p => p.alpha > 0);
+    if (particles.length > 0) requestAnimationFrame(animate);
+    else setTimeout(() => {
+      restoreWinImages();
+      isSpinning = false;
+    }, 6000);
+  }
+  animate();
+}
+
+document.getElementById('go').onclick = () => {
+  if (!isGameStarted || isSpinning) return;
+  isSpinning = true;
+
+  document.getElementById('slot-sound').play();
+
+  spinCount++;
+  let results;
+
+  if (spinCount === 5 && !hasWonInCycle) {
+    const forceSymbol = images[Math.floor(Math.random() * images.length)];
+    results = [forceSymbol, forceSymbol, forceSymbol];
+    hasWonInCycle = true;
+    spinCount = 0;
+  } else {
+    results = reelsArrayRandomImages(images, 3);
+    if (results.every(r => r === results[0])) {
+      hasWonInCycle = true;
+    }
+    if (spinCount >= 5) {
+      spinCount = 0;
+      hasWonInCycle = false;
+    }
+  }
+
+  reels.forEach((reel, index) => {
+    setTimeout(() => {
+      const imgElement = reel.querySelector('img');
+      imgElement.style.animation = 'none';
+      imgElement.offsetHeight;
+
+      let count = 0;
+      const spin = setInterval(() => {
+        imgElement.src = images[count % images.length];
+        count++;
+      }, 200);
+
+      setTimeout(() => {
+        clearInterval(spin);
+        imgElement.src = results[index];
+
+        if (index === reels.length - 1) {
+          setTimeout(() => {
+            if (results.every(r => r === results[0])) {
+              const winSound = document.getElementById('win-sound');
+              const bgm = document.getElementById('bgm');
+              if (bgm && !bgm.paused) bgm.pause();
+              winSound.play();
+              winSound.onended = () => {
+                bgm.play().catch(() => {});
+              };
+              winSymbol = results[0];
+              originalWinResults = [...results];
+              replaceImagesForWin(winSymbol);
+              showWinEffect();
+            } else {
+              isSpinning = false;
+            }
+          }, 500);
+        }
+      }, 3000);
+    }, index * 500);
+  });
+};
+</script>
+</body>
+</html>
